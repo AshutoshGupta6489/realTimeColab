@@ -1,0 +1,32 @@
+.canvas_conatiner {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    flex-direction: column;
+    background-color: aliceblue;
+    position: relative;
+}
+
+.toolbar_toggler {
+    display: flex;
+    padding-left: 10px;
+}
+
+.text_toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.toolBar_container {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    background-color: darkgray;
+    position: absolute;
+    width: 50%;
+    border-radius: 10px;
+    top: 5%;
+    left: 1%;
+    padding: 10px;
+}
