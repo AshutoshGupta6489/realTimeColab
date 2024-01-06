@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import './DrawingBoard.css'
+import { Socket, io } from "socket.io-client";
+import './DrawingBoard.css';
+
 const fontOptions = [
     'Arial',
     'Verdana',
@@ -21,6 +23,7 @@ const fontOptions = [
     'Courier',
     'Lucida Grande'
 ];
+
 const initvalue = {
     backgroundColor: '#FFFFFF',
     drawingMode: 'pencil',
@@ -52,6 +55,8 @@ const DrawingBoad: React.FC = () => {
 
     const lastX = useRef<number>(0);
     const lastY = useRef<number>(0);
+    const socket = useRef<Socket | null>();
+    const id = useRef(Math.random());
     useEffect(() => {
         // Variables to store drawing state
         const ctx = canvasRef.current?.getContext('2d');
@@ -84,8 +89,9 @@ const DrawingBoad: React.FC = () => {
         const ctx = canvas && canvas.getContext('2d');
         if (drawingMode === 'text') {
             const userText = prompt('Enter text:');
-            if (userText !== null) {
-                ctx?.fillText(userText, offsetX, offsetY);
+            if (userText !== null && ctx) {
+                ctx.fillText(userText, offsetX, offsetY);
+                socket.current?.emit('updateCanvas', { id, canvas: canvas?.toDataURL() });
             }
         }
         [lastX.current, lastY.current] = [offsetX, offsetY];
@@ -94,12 +100,16 @@ const DrawingBoad: React.FC = () => {
     const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
         if (!isDrawing) return;
         const { offsetX, offsetY } = e.nativeEvent;
+        onBoardUpdate(offsetX, offsetY);
+        socket.current?.emit('updateCanvas', { id, canvas: canvasRef.current?.toDataURL() });
+    };
+    const onBoardUpdate = (offsetX: number, offsetY: number) => {
         const canvas = canvasRef.current;
         const ctx = canvas && canvas.getContext('2d');
         if (drawingMode === 'eraser') {
             if (ctx) {
                 ctx.globalCompositeOperation = 'destination-out';
-                ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
+                ctx.strokeStyle = backgroundColor;
             }
         } else {
             if (ctx) {
@@ -148,7 +158,20 @@ const DrawingBoad: React.FC = () => {
         }
     };
     useEffect(() => {
-        // Initial canvas resize
+        socket.current = io('http://localhost:3000');
+        socket.current.on('updateCanvas', (data) => {
+            if (data && id.current !== data.id) {
+                const ctx = canvasRef.current?.getContext('2d');
+                if (ctx) {
+                    const img = new Image();
+                    img.onload = () => {
+                        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                        ctx.drawImage(img, 0, 0);
+                    };
+                    img.src = data.canvas;
+                }
+            }
+        });
         resizeCanvas();
         // Event listener for window resize
         window.addEventListener('resize', resizeCanvas);
@@ -156,6 +179,7 @@ const DrawingBoad: React.FC = () => {
         // Cleanup the event listener on component unmount
         return () => {
             window.removeEventListener('resize', resizeCanvas);
+            socket.current?.close();
         };
     }, []);
     return (
@@ -204,7 +228,7 @@ const DrawingBoad: React.FC = () => {
                         <label>
                             Font Family:
                             <select value={fontFamily} onInput={(e) => { setFontFamily(e.currentTarget.value) }}>
-                                {fontOptions.map(data => <option value={data}>{data}</option>)}
+                                {fontOptions.map(data => <option key={data} value={data}>{data}</option>)}
                             </select>
                         </label>
                         <label>
